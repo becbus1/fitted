@@ -14,36 +14,32 @@ struct FittedApp: App {
     var body: some Scene {
         WindowGroup {
             RootView(appState: appState)
-                .environment(appState)
         }
     }
 }
 
-// MARK: - Design Notes
-//
-// Architecture decisions:
+// MARK: - Architecture Notes
 //
 // 1. Single AppState at root:
-//    - Avoids prop drilling for phase changes
-//    - Accessible via @Environment where needed
-//    - ViewModels can be injected with reference
+//    - Passed explicitly to RootView
+//    - ViewModels receive reference for mutations
+//    - Views observe via @Bindable
 //
 // 2. No TabView:
 //    - App is phase-gated, not feature-browsable
-//    - Enforces onboarding → circle-setup → circle flow
+//    - Enforces onboarding → create/join → circle flow
 //    - Prevents "skip to content" patterns
 //
-// 3. @Observable over ObservableObject:
-//    - iOS 17+ modern observation
+// 3. @Observable (iOS 17+):
+//    - Modern observation system
 //    - Finer-grained view updates
 //    - Cleaner syntax with @Bindable
 //
-// 4. Phase-based root switching:
+// 4. Phase-based navigation:
 //    - Each phase owns its NavigationStack
-//    - Impossible to navigate to invalid states
-//    - Clear mental model for developers
+//    - Invalid state transitions prevented by design
 //
-// Future considerations:
-// - Deep link handling in onOpenURL
-// - Scene phase observation for background/foreground
-// - Persistence of phase across app launches
+// Future:
+// - Deep link handling via onOpenURL
+// - Persistence of phase across launches
+// - Scene phase observation

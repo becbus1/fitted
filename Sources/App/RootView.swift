@@ -2,8 +2,8 @@ import SwiftUI
 
 // MARK: - Root View
 // Top-level view that switches based on AppState.phase.
-// Enforces the onboarding → circle-setup → circle-home flow.
-// No tab bar. Navigation is phase-gated, not browsable.
+// Enforces: onboarding → create/join → circle-home flow.
+// No tabs. No browsing. Navigation is phase-gated.
 
 struct RootView: View {
     @Bindable var appState: AppState
@@ -16,6 +16,9 @@ struct RootView: View {
             OnboardingContainer(appState: appState)
 
         case .noCircle:
+            // User completed onboarding previously but has no circle.
+            // (e.g., left their last circle)
+            // Re-uses the same create/join flow.
             CircleSetupContainer(appState: appState)
 
         case .inCircle:
@@ -24,24 +27,58 @@ struct RootView: View {
     }
 }
 
-// MARK: - Phase Containers
-// Each container owns its navigation stack.
-// Placeholder views used until features are implemented.
+// MARK: - Onboarding Route
 
-/// Container for onboarding phase.
-/// Shows philosophy, routes to create/join.
+/// Navigation destinations within onboarding phase.
+enum OnboardingRoute: Hashable {
+    case createCircle
+    case joinCircle
+}
+
+// MARK: - Onboarding Container
+// First-time user experience.
+// Shows OnboardingIntroView, then navigates to create/join.
+
 struct OnboardingContainer: View {
     @Bindable var appState: AppState
+    @State private var path: [OnboardingRoute] = []
 
     var body: some View {
-        NavigationStack {
-            OnboardingPlaceholder(appState: appState)
+        NavigationStack(path: $path) {
+            OnboardingIntroView(
+                onCreateCircle: {
+                    path.append(.createCircle)
+                },
+                onJoinCircle: {
+                    path.append(.joinCircle)
+                }
+            )
+            .navigationBarHidden(true)
+            .navigationDestination(for: OnboardingRoute.self) { route in
+                switch route {
+                case .createCircle:
+                    CreateCirclePlaceholder(appState: appState)
+                case .joinCircle:
+                    JoinCirclePlaceholder(appState: appState)
+                }
+            }
         }
     }
 }
 
-/// Container for circle setup phase.
-/// User has completed onboarding but has no circle.
+// MARK: - Circle Setup Route
+
+/// Navigation destinations for users returning to create/join.
+/// (Users who previously onboarded but have no circle)
+enum CircleSetupRoute: Hashable {
+    case createCircle
+    case joinCircle
+}
+
+// MARK: - Circle Setup Container
+// For returning users who left their circle.
+// Shows create/join without philosophy intro.
+
 struct CircleSetupContainer: View {
     @Bindable var appState: AppState
     @State private var path: [CircleSetupRoute] = []
@@ -61,8 +98,17 @@ struct CircleSetupContainer: View {
     }
 }
 
-/// Container for main circle experience.
-/// User belongs to a circle; full app unlocked.
+// MARK: - Circle Route
+
+/// Navigation destinations within the main circle experience.
+enum CircleRoute: Hashable {
+    case archive
+    case settings
+}
+
+// MARK: - Circle Home Container
+// Main app experience after joining a circle.
+
 struct CircleHomeContainer: View {
     @Bindable var appState: AppState
     @State private var path: [CircleRoute] = []
@@ -77,15 +123,6 @@ struct CircleHomeContainer: View {
             )
             .navigationDestination(for: CircleRoute.self) { route in
                 switch route {
-                case .home:
-                    CircleHomePlaceholder(
-                        appState: appState,
-                        path: $path,
-                        isPostPresented: $isPostPresented
-                    )
-                case .post:
-                    // Post is modal, handled via sheet.
-                    EmptyView()
                 case .archive:
                     ArchivePlaceholder()
                 case .settings:
@@ -100,102 +137,131 @@ struct CircleHomeContainer: View {
 }
 
 // MARK: - Placeholder Views
-// Structural scaffolding only. No UI implementation.
-// Each placeholder shows its purpose and provides navigation hooks.
+// Structural scaffolding. Features not yet implemented.
+// TODO: Replace with actual feature views.
 
-struct OnboardingPlaceholder: View {
-    @Bindable var appState: AppState
-
-    var body: some View {
-        VStack(spacing: 24) {
-            Text("Onboarding")
-                .font(FittedTypography.primary)
-
-            Text("Philosophy screen placeholder")
-                .font(FittedTypography.caption)
-                .foregroundStyle(FittedColors.textTertiary)
-
-            Button("Complete Onboarding") {
-                appState.completeOnboarding()
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(FittedColors.backgroundPrimary)
-    }
-}
-
+/// Placeholder for returning users without a circle.
+/// Shows create/join options without onboarding philosophy.
 struct CircleSetupRootPlaceholder: View {
     @Bindable var appState: AppState
     @Binding var path: [CircleSetupRoute]
 
     var body: some View {
         VStack(spacing: 24) {
-            Text("Create or Join")
+            Text("Join or Create a Circle")
                 .font(FittedTypography.primary)
+                .foregroundStyle(FittedColors.textPrimary)
 
-            Text("No circle yet. Choose an option.")
-                .font(FittedTypography.caption)
-                .foregroundStyle(FittedColors.textTertiary)
+            Text("You're not in a circle yet.")
+                .font(FittedTypography.body)
+                .foregroundStyle(FittedColors.textSecondary)
 
             VStack(spacing: 12) {
-                Button("Create a Circle") {
-                    path.append(.createCircle)
+                Button(action: { path.append(.createCircle) }) {
+                    Text("Create a Circle")
+                        .font(FittedTypography.body)
+                        .foregroundStyle(FittedColors.backgroundPrimary)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 50)
+                        .background(FittedColors.textPrimary)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
 
-                Button("Join a Circle") {
-                    path.append(.joinCircle)
+                Button(action: { path.append(.joinCircle) }) {
+                    Text("Join a Circle")
+                        .font(FittedTypography.body)
+                        .foregroundStyle(FittedColors.textPrimary)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 50)
+                        .background(FittedColors.backgroundSecondary)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .strokeBorder(FittedColors.separator, lineWidth: 1)
+                        )
                 }
             }
+            .padding(.horizontal, 32)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(FittedColors.backgroundPrimary)
     }
 }
 
+/// Placeholder for circle creation flow.
+/// TODO: Implement actual CreateCircleView.
 struct CreateCirclePlaceholder: View {
     @Bindable var appState: AppState
 
     var body: some View {
         VStack(spacing: 24) {
-            Text("Create Circle")
+            Text("Create a Circle")
                 .font(FittedTypography.primary)
+                .foregroundStyle(FittedColors.textPrimary)
 
-            Text("Circle creation flow placeholder")
+            Text("Circle creation flow")
                 .font(FittedTypography.caption)
                 .foregroundStyle(FittedColors.textTertiary)
 
-            Button("Create & Enter Circle") {
+            // TODO: Replace with actual circle creation logic
+            Button(action: {
                 appState.enterCircle(circleID: "placeholder-circle-id")
+            }) {
+                Text("Create & Continue")
+                    .font(FittedTypography.body)
+                    .foregroundStyle(FittedColors.backgroundPrimary)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 50)
+                    .background(FittedColors.textPrimary)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
+            .padding(.horizontal, 32)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(FittedColors.backgroundPrimary)
         .navigationTitle("Create Circle")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 
+/// Placeholder for circle join flow.
+/// TODO: Implement actual JoinCircleView.
 struct JoinCirclePlaceholder: View {
     @Bindable var appState: AppState
 
     var body: some View {
         VStack(spacing: 24) {
-            Text("Join Circle")
+            Text("Join a Circle")
                 .font(FittedTypography.primary)
+                .foregroundStyle(FittedColors.textPrimary)
 
-            Text("Join via code/link placeholder")
+            Text("Enter invite code or link")
                 .font(FittedTypography.caption)
                 .foregroundStyle(FittedColors.textTertiary)
 
-            Button("Join & Enter Circle") {
+            // TODO: Replace with actual join logic
+            Button(action: {
                 appState.enterCircle(circleID: "placeholder-circle-id")
+            }) {
+                Text("Join & Continue")
+                    .font(FittedTypography.body)
+                    .foregroundStyle(FittedColors.backgroundPrimary)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 50)
+                    .background(FittedColors.textPrimary)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
+            .padding(.horizontal, 32)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(FittedColors.backgroundPrimary)
         .navigationTitle("Join Circle")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 
+/// Placeholder for circle home (ring + members).
+/// TODO: Implement actual CircleView.
 struct CircleHomePlaceholder: View {
     @Bindable var appState: AppState
     @Binding var path: [CircleRoute]
@@ -203,53 +269,68 @@ struct CircleHomePlaceholder: View {
 
     var body: some View {
         VStack(spacing: 24) {
-            Text("Circle Home")
+            Text("Today")
                 .font(FittedTypography.primary)
+                .foregroundStyle(FittedColors.textPrimary)
 
-            Text("Ring + member status placeholder")
+            Text("Circle ring + member status")
                 .font(FittedTypography.caption)
                 .foregroundStyle(FittedColors.textTertiary)
 
             VStack(spacing: 12) {
-                Button("Post Today's Fit") {
-                    isPostPresented = true
+                // TODO: Wire to PostView
+                Button(action: { isPostPresented = true }) {
+                    Text("Post Today's Fit")
+                        .font(FittedTypography.body)
+                        .foregroundStyle(FittedColors.backgroundPrimary)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 50)
+                        .background(FittedColors.textPrimary)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
 
-                Button("View Archive") {
-                    path.append(.archive)
+                Button(action: { path.append(.archive) }) {
+                    Text("View Archive")
+                        .font(FittedTypography.body)
+                        .foregroundStyle(FittedColors.textPrimary)
                 }
 
-                Button("Leave Circle (Debug)") {
-                    appState.leaveCircle()
+                // Debug only
+                Button(action: { appState.leaveCircle() }) {
+                    Text("Leave Circle")
+                        .font(FittedTypography.caption)
+                        .foregroundStyle(FittedColors.textTertiary)
                 }
             }
+            .padding(.horizontal, 32)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(FittedColors.backgroundPrimary)
         .navigationTitle("Today")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 
+/// Placeholder for post capture flow.
+/// TODO: Implement actual PostView with camera.
 struct PostPlaceholder: View {
     @Binding var isPresented: Bool
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 24) {
-                Text("Post")
+                Text("Today's Fit")
                     .font(FittedTypography.primary)
+                    .foregroundStyle(FittedColors.textPrimary)
 
                 Text("Camera capture placeholder")
                     .font(FittedTypography.caption)
                     .foregroundStyle(FittedColors.textTertiary)
-
-                Button("Dismiss") {
-                    isPresented = false
-                }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(FittedColors.backgroundPrimary)
-            .navigationTitle("Today's Fit")
+            .navigationTitle("Post")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
@@ -261,27 +342,34 @@ struct PostPlaceholder: View {
     }
 }
 
+/// Placeholder for personal archive.
+/// TODO: Implement actual ArchiveView.
 struct ArchivePlaceholder: View {
     var body: some View {
         VStack(spacing: 24) {
-            Text("Archive")
+            Text("Your Fits")
                 .font(FittedTypography.primary)
+                .foregroundStyle(FittedColors.textPrimary)
 
-            Text("Personal closet placeholder")
+            Text("Personal archive placeholder")
                 .font(FittedTypography.caption)
                 .foregroundStyle(FittedColors.textTertiary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(FittedColors.backgroundPrimary)
-        .navigationTitle("Your Fits")
+        .navigationTitle("Archive")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 
+/// Placeholder for settings.
+/// TODO: Implement actual SettingsView.
 struct SettingsPlaceholder: View {
     var body: some View {
         VStack(spacing: 24) {
             Text("Settings")
                 .font(FittedTypography.primary)
+                .foregroundStyle(FittedColors.textPrimary)
 
             Text("Circle settings placeholder")
                 .font(FittedTypography.caption)
@@ -290,11 +378,22 @@ struct SettingsPlaceholder: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(FittedColors.backgroundPrimary)
         .navigationTitle("Settings")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 
-// MARK: - Preview
+// MARK: - Previews
 
-#Preview {
+#Preview("Onboarding") {
     RootView(appState: AppState(phase: .onboarding))
+}
+
+#Preview("No Circle") {
+    RootView(appState: AppState(phase: .noCircle))
+}
+
+#Preview("In Circle") {
+    let state = AppState(phase: .inCircle)
+    state.activeCircleID = "preview-circle"
+    return RootView(appState: state)
 }
