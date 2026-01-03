@@ -155,48 +155,44 @@ struct PostView: View {
     }
 
     // MARK: - Posting View
-    // Brief loading state during upload.
+    // Brief loading state during upload. Minimal.
 
     private var postingView: some View {
-        VStack(spacing: 16) {
-            ProgressView()
-                .tint(FittedColors.textSecondary)
-
-            Text("Posting...")
-                .font(FittedTypography.caption)
-                .foregroundStyle(FittedColors.textTertiary)
-        }
+        ProgressView()
+            .tint(FittedColors.textTertiary)
     }
 
     // MARK: - Complete View
-    // Subtle confirmation. Relief, not celebration.
-    // Auto-dismisses after brief delay.
+    // Minimal confirmation. No copy. No celebration.
+    // The reward lives in the group state updating, not here.
+    //
+    // TODO: NEVER add celebratory copy, reward animations, or success messages.
+    // Completion feedback must come from CircleView's ring animation only.
+    // This view exists purely as a brief visual bridge to dismissal.
+
+    @State private var completeOpacity: Double = 0
 
     private var completeView: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 48))
-                .foregroundStyle(FittedColors.accent)
+        Image(systemName: "checkmark")
+            .font(.system(size: 32, weight: .medium))
+            .foregroundStyle(FittedColors.textSecondary)
+            .opacity(completeOpacity)
+            .onAppear {
+                // Light haptic — confirms action registered, not reward
+                let generator = UIImpactFeedbackGenerator(style: .light)
+                generator.impactOccurred()
 
-            Text("Posted")
-                .font(FittedTypography.body)
-                .foregroundStyle(FittedColors.textPrimary)
+                // Brief fade in
+                withAnimation(.easeIn(duration: 0.15)) {
+                    completeOpacity = 1
+                }
 
-            Text("You're done for today")
-                .font(FittedTypography.caption)
-                .foregroundStyle(FittedColors.textTertiary)
-        }
-        .onAppear {
-            // Light haptic feedback
-            let generator = UINotificationFeedbackGenerator()
-            generator.notificationOccurred(.success)
-
-            // Auto-dismiss after brief moment
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                onPostComplete()
-                dismiss()
+                // Dismiss quickly — reward is in CircleView ring update
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    onPostComplete()
+                    dismiss()
+                }
             }
-        }
     }
 
     // MARK: - Actions

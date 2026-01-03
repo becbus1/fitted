@@ -219,6 +219,13 @@ struct CircleView: View {
 // Segmented circular indicator.
 // Matte appearance. No glow. No gradients.
 // Incomplete feels unfinished, not failed.
+//
+// Animation philosophy:
+// The ring animates state transitions, not rewards.
+// When a segment fills, it should feel like equilibrium restoring.
+//
+// TODO: NEVER add bounce, elastic spring, glow, pulse, or particle effects.
+// The animation must be invisible as "animation" — just state updating.
 
 struct CompletionRing: View {
     let totalSegments: Int
@@ -230,6 +237,12 @@ struct CompletionRing: View {
     /// Stroke width for ring segments.
     private let strokeWidth: CGFloat = 12
 
+    /// Tracks previous filled count for animation.
+    @State private var animatedFilledSegments: Int = 0
+
+    /// Subtle scale on state change (≤1.03x as specified).
+    @State private var ringScale: CGFloat = 1.0
+
     var body: some View {
         GeometryReader { geometry in
             let size = min(geometry.size.width, geometry.size.height)
@@ -240,7 +253,7 @@ struct CompletionRing: View {
                     RingSegment(
                         index: index,
                         total: totalSegments,
-                        isFilled: index < filledSegments,
+                        isFilled: index < animatedFilledSegments,
                         gapDegrees: segmentGap,
                         strokeWidth: strokeWidth
                     )
@@ -248,9 +261,10 @@ struct CompletionRing: View {
 
                 // Center content
                 VStack(spacing: 4) {
-                    Text("\(filledSegments)")
+                    Text("\(animatedFilledSegments)")
                         .font(.system(size: 36, weight: .medium, design: .default))
                         .foregroundStyle(FittedColors.textPrimary)
+                        .contentTransition(.numericText())
 
                     Text("of \(totalSegments)")
                         .font(FittedTypography.caption)
@@ -258,12 +272,36 @@ struct CompletionRing: View {
                 }
             }
             .frame(width: size, height: size)
+            .scaleEffect(ringScale)
+        }
+        .onAppear {
+            // Set initial state without animation
+            animatedFilledSegments = filledSegments
+        }
+        .onChange(of: filledSegments) { oldValue, newValue in
+            // Animate segment fill: 500ms ease-in-out
+            // Feels like state updating, not reward
+            withAnimation(.easeInOut(duration: 0.5)) {
+                animatedFilledSegments = newValue
+            }
+
+            // Very subtle scale pulse (1.02x max) — barely perceptible
+            // Confirms state change registered, not celebration
+            if newValue > oldValue {
+                withAnimation(.easeOut(duration: 0.25)) {
+                    ringScale = 1.02
+                }
+                withAnimation(.easeIn(duration: 0.25).delay(0.25)) {
+                    ringScale = 1.0
+                }
+            }
         }
     }
 }
 
 // MARK: - Ring Segment
 // Individual arc segment of the completion ring.
+// Color transition is animated via the parent's animation modifier.
 
 struct RingSegment: View {
     let index: Int
@@ -295,6 +333,8 @@ struct RingSegment: View {
                 )
             )
             .rotationEffect(.degrees(-90))
+            // Animate color transition — subtle opacity shift
+            .animation(.easeInOut(duration: 0.5), value: isFilled)
     }
 
     private var trimStart: CGFloat {
