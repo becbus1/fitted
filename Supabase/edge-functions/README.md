@@ -4,6 +4,29 @@ Production-grade Edge Functions for the Fitted posting flow.
 
 ---
 
+## Implementation Approach
+
+**NO Supabase SDK.** All Supabase API calls use `fetch()` directly:
+
+| API | Endpoint Pattern |
+|-----|------------------|
+| Auth | `GET /auth/v1/user` |
+| PostgREST | `GET/POST /rest/v1/{table}` |
+| RPC | `POST /rest/v1/rpc/{function}` |
+| Storage | `HEAD/POST /storage/v1/object/{bucket}/{path}` |
+
+**Why fetch() instead of SDK:**
+- Reduces bundle size
+- Avoids SDK version compatibility issues
+- Makes API calls explicit and auditable
+- Follows Supabase Edge Functions best practices
+
+**Shared code:** `_shared/types.ts` and `_shared/utils.ts` provide:
+- Type definitions (no runtime behavior)
+- Common utilities (auth verification, PostgREST helpers, error responses)
+
+---
+
 ## Architecture Overview
 
 ```
@@ -277,12 +300,15 @@ WHERE bucket_id = 'posts'
 
 ## Environment Variables
 
-| Variable | Description |
-|----------|-------------|
-| `SUPABASE_URL` | Project URL |
-| `SUPABASE_SERVICE_ROLE_KEY` | Service role key (for admin operations) |
-| `IMAGEKIT_URL_ENDPOINT` | ImageKit URL endpoint (e.g., `https://ik.imagekit.io/fitted`) |
-| `IMAGEKIT_PRIVATE_KEY` | ImageKit private key for URL signing |
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `SUPABASE_URL` | Project URL (auto-injected) | Yes |
+| `SUPABASE_ANON_KEY` | Anon key for auth verification (auto-injected) | Yes |
+| `SUPABASE_SERVICE_ROLE_KEY` | Service role key for admin operations (auto-injected) | Yes |
+| `IMAGEKIT_URL_ENDPOINT` | ImageKit URL endpoint (e.g., `https://ik.imagekit.io/fitted`) | Yes |
+| `IMAGEKIT_PRIVATE_KEY` | ImageKit private key for URL signing | Yes |
+
+**Note:** `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` are automatically injected by the Supabase Edge Functions runtime.
 
 ---
 
