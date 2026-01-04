@@ -470,11 +470,13 @@ struct Post: Identifiable, Equatable {
              RootView(appState: appState)
                  .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
                      // Check day boundary when returning to app
-                     appState.activeCircleVM?.checkDayBoundary()
+                     // Note: This checks the focused circle's VM, but day boundaries
+                     // should be checked for ALL circles the user belongs to.
+                     appState.focusedCircleVM?.checkDayBoundary()
                  }
                  .onReceive(midnightTimer) { _ in
                      // Check day boundary at midnight
-                     appState.activeCircleVM?.checkDayBoundary()
+                     appState.focusedCircleVM?.checkDayBoundary()
                  }
          }
      }

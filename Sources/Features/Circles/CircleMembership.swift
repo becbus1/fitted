@@ -10,7 +10,13 @@ import SwiftUI
 // - Belonging is the value, not content
 // - Leaving is allowed but consequential
 // - Rejoining is possible but doesn't erase absence
-// - Multiple circles are allowed but one is "active" at a time
+// - Multiple circles are allowed; one is "focused" for UI at a time
+//
+// IMPORTANT DISTINCTION:
+// - "Membership" = social relationship (user belongs to circle)
+// - "Focus" = UI state (which circle's ring is currently displayed)
+// Focus is transient and has no social meaning.
+// Membership is persistent and carries social weight.
 
 // MARK: - Circle Model
 
@@ -89,22 +95,33 @@ enum MembershipStatus: Equatable {
 
 /// Manages the user's relationship to all their circles.
 ///
+/// IMPORTANT CONCEPTUAL DISTINCTION:
+/// - "Membership" is the social relationship (persisted, meaningful)
+/// - "Focus" is the UI state (transient, no social meaning)
+///
 /// Invariants:
 /// 1. User can belong to multiple circles simultaneously
-/// 2. Exactly one circle is "active" at any time (for UI focus)
+/// 2. Exactly one circle is "focused" at any time (for UI display)
 /// 3. Posting eligibility is independent per circle
-/// 4. Switching circles is instant and free
+/// 4. Switching focus is instant and free (no social consequence)
+/// 5. Membership in non-focused circles remains fully valid
 @Observable
 final class CircleMembershipViewModel {
 
     // MARK: - State
 
     /// All circles the user currently belongs to.
+    /// This is MEMBERSHIP — the user is a full member of ALL these circles.
     private(set) var circles: [Circle] = []
 
-    /// The currently active/focused circle.
-    /// CircleView shows this circle's state.
-    private(set) var activeCircle: Circle?
+    /// The currently focused circle for UI display.
+    /// "Focused" means: which circle's ring, members, and state are shown.
+    /// This is purely a UI concept — it does NOT imply:
+    /// - This circle is more important
+    /// - Other circles are inactive
+    /// - Posting is restricted to this circle
+    /// The user can post to ANY circle they belong to.
+    private(set) var focusedCircle: Circle?
 
     /// Membership status per circle (keyed by circle ID).
     private(set) var membershipStatus: [String: MembershipStatus] = [:]
@@ -136,34 +153,37 @@ final class CircleMembershipViewModel {
         circles.count > 1
     }
 
-    // MARK: - Circle Switching
+    // MARK: - Circle Focus (UI Only)
 
-    /// Switch the active circle.
+    /// Change which circle is focused in the UI.
     ///
-    /// Psychological note:
-    /// Switching is free and instant. We don't want users to feel
-    /// "stuck" in a circle. But the active circle is where social
-    /// pressure applies — you can't avoid it by switching away.
-    func switchToCircle(_ circle: Circle) {
+    /// IMPORTANT: This is a UI operation only.
+    /// - Does NOT affect membership in other circles
+    /// - Does NOT affect posting eligibility in other circles
+    /// - Does NOT have any social meaning
+    ///
+    /// Switching is free and instant. Social pressure exists in ALL
+    /// circles the user belongs to — they can't avoid it by changing focus.
+    func focusCircle(_ circle: Circle) {
         guard circles.contains(where: { $0.id == circle.id }) else {
             return
         }
-        activeCircle = circle
+        focusedCircle = circle
 
-        // TODO: Persist active circle preference locally
+        // TODO: Persist focused circle preference locally (convenience only)
     }
 
-    /// Switch to next circle in rotation.
+    /// Focus the next circle in rotation.
     /// Used for quick switching UI.
-    func switchToNextCircle() {
-        guard let current = activeCircle,
+    func focusNextCircle() {
+        guard let current = focusedCircle,
               let currentIndex = circles.firstIndex(where: { $0.id == current.id }),
               circles.count > 1 else {
             return
         }
 
         let nextIndex = (currentIndex + 1) % circles.count
-        activeCircle = circles[nextIndex]
+        focusedCircle = circles[nextIndex]
     }
 
     // MARK: - Joining
@@ -174,9 +194,9 @@ final class CircleMembershipViewModel {
     func joinCircle(circleID: String) async throws -> Circle {
         // Check if already a member
         if circles.contains(where: { $0.id == circleID }) {
-            // Already a member — just switch to it
+            // Already a member — just focus it
             if let circle = circles.first(where: { $0.id == circleID }) {
-                switchToCircle(circle)
+                focusCircle(circle)
                 return circle
             }
         }
@@ -202,9 +222,10 @@ final class CircleMembershipViewModel {
         circles.append(circle)
         membershipStatus[circleID] = .member(since: Date())
 
-        // Set as active if it's the first circle
-        if activeCircle == nil {
-            activeCircle = circle
+        // Focus the new circle if none is focused
+        // (This is a UI convenience, not a membership rule)
+        if focusedCircle == nil {
+            focusedCircle = circle
         }
 
         return circle
@@ -255,9 +276,10 @@ final class CircleMembershipViewModel {
         circles.removeAll { $0.id == circle.id }
         membershipStatus[circle.id] = .formerMember(leftAt: Date())
 
-        // If we left the active circle, switch to another
-        if activeCircle?.id == circle.id {
-            activeCircle = circles.first
+        // If we left the focused circle, focus another
+        // (UI must show something if user still has circles)
+        if focusedCircle?.id == circle.id {
+            focusedCircle = circles.first
         }
     }
 
@@ -282,7 +304,7 @@ final class CircleMembershipViewModel {
         // TODO: Fetch user's circles from server
         // let serverCircles = try await CircleService.fetchUserCircles()
         // self.circles = serverCircles
-        // self.activeCircle = serverCircles.first
+        // if focusedCircle == nil { self.focusedCircle = serverCircles.first }
     }
 }
 
@@ -603,39 +625,50 @@ final class JoinCircleViewModel {
 
 /*
 
+ FOCUS vs MEMBERSHIP (CRITICAL DISTINCTION):
+
+ - User is a MEMBER of all circles in their list
+ - User FOCUSES one circle at a time for UI display
+ - Focus is transient; membership is persistent
+ - Changing focus has NO effect on membership or posting eligibility
+
  When user has multiple circles, CircleView should:
 
  1. HEADER:
-    - Show active circle name
+    - Show focused circle name
     - If multiple circles, show switcher (e.g., "Daily Fits" with dropdown)
     - Tap to reveal other circles
+    - Changing focus is instant and has no consequence
 
  2. RING:
-    - Shows only the active circle's state
-    - Switching circles changes the ring immediately
+    - Shows only the focused circle's state
+    - Changing focus updates the ring display immediately
     - Each circle has independent completion state
+    - User's membership obligations exist in ALL circles, not just focused
 
  3. POSTING:
     - Posting is per-circle per-day
     - User can post to multiple circles on the same day
-    - "Posted today" only applies to current active circle
+    - "Posted today" shown for the focused circle only
+    - But user should be aware of posting status in other circles
 
- 4. SWITCHING UI:
+ 4. FOCUS SWITCHING UI:
     - Simple horizontal swipe or dropdown
     - Show unposted indicator on circles where user hasn't posted today
+    - This reminds user they have obligations in other circles too
     - No notifications/badges (too gamified)
 
  Example header:
 
  ┌─────────────────────────────────────────┐
- │  Daily Fits ▼                      ⓘ   │  ← Tap to switch circles
+ │  Daily Fits ▼                      ⓘ   │  ← Tap to change focus
  └─────────────────────────────────────────┘
 
  When expanded:
 
  ┌─────────────────────────────────────────┐
  │  Daily Fits           ✓ posted today   │
- │  Work Friends         ○ not posted     │
+ │  Work Friends         ○ not posted     │  ← Still a member, still has obligation
  │  Family               ✓ posted today   │
  └─────────────────────────────────────────┘
 
@@ -647,20 +680,25 @@ final class JoinCircleViewModel {
 
  MEMBERSHIP INVARIANTS (MUST NEVER BE VIOLATED):
 
- 1. MULTI-CIRCLE ALLOWED
-    - Users can belong to any number of circles
+ 1. MULTI-CIRCLE MEMBERSHIP
+    - Users can belong to any number of circles simultaneously
     - No limit enforced (maybe soft limit of 10 later)
-    - Each circle is independent
+    - Each circle membership is independent and equal
+    - There is NO "primary" or "main" circle
 
- 2. ONE ACTIVE CIRCLE
-    - Exactly one circle is "active" for UI purposes
-    - Switching is free and instant
-    - Active circle determines what ring/members are shown
+ 2. ONE FOCUSED CIRCLE (UI ONLY)
+    - Exactly one circle is "focused" for UI display
+    - Focus is a transient UI state, NOT a social concept
+    - Changing focus is free and instant
+    - Focus determines what ring/members are shown
+    - Focus does NOT imply priority or preference
+    - Membership in non-focused circles is fully valid
 
  3. POSTING IS PER-CIRCLE
     - (user, circle, day) is the posting unit
     - Posting to Circle A doesn't affect Circle B
     - Each circle has its own completion ring
+    - User can post to ANY circle they belong to, not just focused
 
  4. LEAVING IS ALLOWED
     - User can leave any circle at any time

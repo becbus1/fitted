@@ -29,9 +29,11 @@ final class AppState {
     /// Current app phase. Drives RootView branching.
     var phase: AppPhase
 
-    /// ID of the user's active circle (if any).
-    /// Used downstream for circle-scoped queries.
-    var activeCircleID: String?
+    /// ID of the user's currently focused circle (if any).
+    /// "Focused" is a UI concept only — determines which circle's
+    /// ring and members are displayed. Does NOT imply priority
+    /// or exclusivity. User remains a member of all their circles.
+    var focusedCircleID: String?
 
     /// Minimal user info after auth.
     /// Nil until authenticated.
@@ -39,7 +41,7 @@ final class AppState {
 
     init(phase: AppPhase = .onboarding) {
         self.phase = phase
-        self.activeCircleID = nil
+        self.focusedCircleID = nil
         self.currentUserID = nil
     }
 
@@ -54,16 +56,16 @@ final class AppState {
     }
 
     /// Called when user joins or creates a circle.
-    /// Transitions to inCircle phase.
+    /// Transitions to inCircle phase and focuses the new circle.
     func enterCircle(circleID: String) {
-        activeCircleID = circleID
+        focusedCircleID = circleID
         phase = .inCircle
     }
 
     /// Called when user leaves their only circle.
     /// Returns to noCircle phase.
     func leaveCircle() {
-        activeCircleID = nil
+        focusedCircleID = nil
         phase = .noCircle
     }
 
@@ -71,7 +73,7 @@ final class AppState {
     /// Used for sign-out or testing.
     func reset() {
         phase = .onboarding
-        activeCircleID = nil
+        focusedCircleID = nil
         currentUserID = nil
     }
 }
