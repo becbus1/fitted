@@ -394,6 +394,6 @@ struct SettingsPlaceholder: View {
 
 #Preview("In Circle") {
     let state = AppState(phase: .inCircle)
-    state.activeCircleID = "preview-circle"
+    state.focusedCircleID = "preview-circle"
     return RootView(appState: state)
 }

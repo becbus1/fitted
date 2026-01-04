@@ -8,7 +8,7 @@ import SwiftUI
 @main
 struct FittedApp: App {
     /// App-wide state container.
-    /// Owns navigation phase, active circle, user session.
+    /// Owns navigation phase, focused circle, user session.
     @State private var appState = AppState()
 
     var body: some Scene {
