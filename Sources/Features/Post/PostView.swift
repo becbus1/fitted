@@ -93,11 +93,11 @@ struct PostView: View {
             // Capture button
             Button(action: { showingCamera = true }) {
                 ZStack {
-                    Circle()
+                    SwiftUI.Circle()
                         .strokeBorder(FittedColors.textPrimary, lineWidth: 3)
                         .frame(width: 72, height: 72)
 
-                    Circle()
+                    SwiftUI.Circle()
                         .fill(FittedColors.textPrimary)
                         .frame(width: 60, height: 60)
                 }
@@ -118,7 +118,6 @@ struct PostView: View {
             Spacer()
                 .frame(height: 16)
 
-            // Image preview
             Image(uiImage: image)
                 .resizable()
                 .aspectRatio(contentMode: .fit)
@@ -127,9 +126,7 @@ struct PostView: View {
 
             Spacer()
 
-            // Actions
             VStack(spacing: 12) {
-                // Post button
                 Button(action: submitPost) {
                     Text("Post")
                         .font(FittedTypography.body)
@@ -140,7 +137,6 @@ struct PostView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
 
-                // Retake button (only before posting)
                 Button(action: retakePhoto) {
                     Text("Retake")
                         .font(FittedTypography.body)
@@ -165,10 +161,6 @@ struct PostView: View {
     // MARK: - Complete View
     // Minimal confirmation. No copy. No celebration.
     // The reward lives in the group state updating, not here.
-    //
-    // TODO: NEVER add celebratory copy, reward animations, or success messages.
-    // Completion feedback must come from CircleView's ring animation only.
-    // This view exists purely as a brief visual bridge to dismissal.
 
     @State private var completeOpacity: Double = 0
 
@@ -178,16 +170,13 @@ struct PostView: View {
             .foregroundStyle(FittedColors.textSecondary)
             .opacity(completeOpacity)
             .onAppear {
-                // Light haptic — confirms action registered, not reward
                 let generator = UIImpactFeedbackGenerator(style: .light)
                 generator.impactOccurred()
 
-                // Brief fade in
                 withAnimation(.easeIn(duration: 0.15)) {
                     completeOpacity = 1
                 }
 
-                // Dismiss quickly — reward is in CircleView ring update
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                     onPostComplete()
                     dismiss()
@@ -199,10 +188,6 @@ struct PostView: View {
 
     private func submitPost() {
         postState = .posting
-
-        // TODO: Wire to actual image upload service.
-        // Upload to Supabase Storage, then create post record.
-        // For now, simulate upload delay.
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
             postState = .complete
@@ -219,15 +204,13 @@ struct PostView: View {
 // MARK: - Post State
 
 private enum PostState {
-    case camera     // Initial: ready to capture
-    case preview    // Image captured, ready to post
-    case posting    // Upload in progress
-    case complete   // Done for today
+    case camera
+    case preview
+    case posting
+    case complete
 }
 
 // MARK: - Camera View
-// Native iOS camera via UIImagePickerController.
-// No filters. No editing. Just capture.
 
 struct CameraView: UIViewControllerRepresentable {
     @Binding var image: UIImage?
@@ -272,15 +255,6 @@ struct CameraView: UIViewControllerRepresentable {
     }
 }
 
-// MARK: - Simulator Fallback
-// For development: use photo library if camera unavailable.
-
-extension CameraView {
-    static var isAvailable: Bool {
-        UIImagePickerController.isSourceTypeAvailable(.camera)
-    }
-}
-
 // MARK: - Preview
 
 #Preview("Camera Prompt") {
@@ -288,6 +262,5 @@ extension CameraView {
 }
 
 #Preview("Complete State") {
-    // For previewing completion state
     PostView()
 }
