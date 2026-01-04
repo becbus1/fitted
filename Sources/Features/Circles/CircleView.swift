@@ -323,7 +323,7 @@ struct RingSegment: View {
     }
 
     var body: some View {
-        Circle()
+        SwiftUI.Circle()
             .trim(from: trimStart, to: trimEnd)
             .stroke(
                 isFilled ? FittedColors.accent : FittedColors.fillInactive,
@@ -362,7 +362,7 @@ struct MemberCell: View {
         VStack(spacing: 8) {
             // Avatar
             ZStack {
-                Circle()
+                SwiftUI.Circle()
                     .fill(member.hasPostedToday
                         ? FittedColors.accent
                         : FittedColors.fillInactive)
